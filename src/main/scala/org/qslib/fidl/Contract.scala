@@ -18,15 +18,17 @@ package org.qslib.fidl
 
 import com.github.nscala_time.time.Imports._
 import java.util.Currency
+import Implicits._
 
 trait Contract {
-  val INFINITE_DATE = new DateTime(10000, 0, 0, 0, 0)
+  def start: DateTime
 
   // If expiry is None, it means that the contract never expires and can be acquired anytime.
   def expiry: DateTime
 
+  def give: Contract
+
   def and(other: Contract): Contract = And(this, other)
-  def give: Contract = Give(this)
 
   final def unary_- : Contract = give
   final def andGive(other: Contract): Contract = and(other.give)
@@ -36,28 +38,29 @@ object Contract {
   def give(c: Contract): Contract = c.give
 }
 
-case class ZCB(expiry: DateTime, notional: Double, currency: Currency) extends Contract
-
 case class And(left: Contract, right: Contract) extends Contract {
+  override val start = if (left.start < right.start) left.start else right.start
   override val expiry = if (left.expiry < right.expiry) right.expiry else left.expiry
   override def toString = left + " and " + right
   override def give: Contract = And(left.give, right.give)
 }
 
-case class Give(contract: Contract) extends Contract {
-  override val expiry = contract.expiry
-  override def give = contract
-  override def toString = "give " + contract
+case class BaseContract(obs: Observable,
+                        currency: Currency,
+                        start: DateTime = Now,
+                        expiry: DateTime = InfiniteHorizon,
+                        side: Side = Buy) extends Contract {
+
+  def give = this.copy(side = -side)
 }
 
 case object Zero extends Contract {
-  override val expiry = INFINITE_DATE
+  override val start = Now
+  override val expiry = InfiniteHorizon
   override def and(other: Contract): Contract = other
   override def give: Contract = this
 }
 
-case class One(currency: Currency) extends Contract {
-  override val expiry = INFINITE_DATE
+object One {
+  def apply(currency: Currency) = BaseContract(one, currency)
 }
-
-case class Truncate(expiry: DateTime, contract: Contract) extends Contract
