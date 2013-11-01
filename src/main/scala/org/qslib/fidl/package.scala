@@ -19,21 +19,25 @@ package org.qslib
 import org.joda.time.DateTime
 
 package object fidl {
+
   val Now = DateTime.now
   val InfiniteHorizon = new DateTime(10000, 0, 0, 0, 0)
 
   type Observable = DateTime => Double
 
-  object Implicits extends ObservableIsNumeric
+  object Implicits extends ObservableIsNumeric with ContractOps
 
   sealed trait Side {
     def unary_- : Side
   }
+
   case object Buy extends Side {
     override val unary_- = Sell
   }
+
   case object Sell extends Side {
     override val unary_- = Buy
   }
+
 }
 

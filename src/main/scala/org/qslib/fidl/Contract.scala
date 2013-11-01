@@ -21,28 +21,57 @@ import java.util.Currency
 import Implicits._
 
 trait Contract {
-  def start: DateTime
 
-  // If expiry is None, it means that the contract never expires and can be acquired anytime.
+  def start: DateTime
   def expiry: DateTime
 
   def give: Contract
+  def get: Contract
+  def truncate(date: DateTime): Contract
 
-  def and(other: Contract): Contract = And(this, other)
+  def and(other: Contract): Contract =
+    And(this, other)
 
-  final def unary_- : Contract = give
-  final def andGive(other: Contract): Contract = and(other.give)
+  final def andGive(other: Contract): Contract =
+    and(other.give)
+
 }
 
-object Contract {
-  def give(c: Contract): Contract = c.give
+trait ContractOps {
+
+  def give(contract: Contract): Contract =
+    contract.give
+
+  def get(contract: Contract): Contract =
+    contract.get
+
+  def truncate(contract: Contract) = new {
+    def at(date: DateTime) =
+      contract.truncate(date)
+  }
+
 }
 
 case class And(left: Contract, right: Contract) extends Contract {
-  override val start = if (left.start < right.start) left.start else right.start
-  override val expiry = if (left.expiry < right.expiry) right.expiry else left.expiry
-  override def toString = left + " and " + right
-  override def give: Contract = And(left.give, right.give)
+
+  override val start =
+    if (left.start < right.start) left.start else right.start
+
+  override val expiry =
+    if (left.expiry < right.expiry) right.expiry else left.expiry
+
+  override def give: Contract =
+    And(left.give, right.give)
+
+  override def get: Contract =
+    And(left.get, right.get)
+
+  override def truncate(date: DateTime) =
+    And(left.truncate(date), right.truncate(date))
+
+  override def toString =
+    left + " and " + right
+
 }
 
 case class BaseContract(obs: Observable,
@@ -51,16 +80,29 @@ case class BaseContract(obs: Observable,
                         expiry: DateTime = InfiniteHorizon,
                         side: Side = Buy) extends Contract {
 
-  def give = this.copy(side = -side)
+  override def give =
+    copy(side = -side)
+
+  override def get =
+    if (expiry == InfiniteHorizon) this
+    else copy(start = expiry)
+
+  override def truncate(date: DateTime) =
+    if (expiry == InfiniteHorizon) this
+    else copy(expiry = date)
+
 }
 
-case object Zero extends Contract {
-  override val start = Now
-  override val expiry = InfiniteHorizon
-  override def and(other: Contract): Contract = other
-  override def give: Contract = this
+object Zero {
+
+  def apply(currency: Currency) =
+    BaseContract(zero, currency)
+
 }
 
 object One {
-  def apply(currency: Currency) = BaseContract(one, currency)
+
+  def apply(currency: Currency) =
+    BaseContract(one, currency)
+
 }

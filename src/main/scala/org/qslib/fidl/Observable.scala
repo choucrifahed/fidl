@@ -19,21 +19,40 @@ package org.qslib.fidl
 import org.joda.time.DateTime
 
 trait ObservableIsNumeric extends Numeric[Observable] {
-  def plus(x: Observable, y: Observable) = d => x(d) + y(d)
-  def minus(x: Observable, y: Observable) = d => x(d) - y(d)
-  def times(x: Observable, y: Observable) = d => x(d) * y(d)
-  def negate(x: Observable): Observable = d => -x(d)
 
-  def const(x: Double): Observable = d => x
-  def fromInt(x: Int): Observable = const(x)
+  def plus(x: Observable, y: Observable) =
+    d => x(d) + y(d)
 
-  def toInt(x: Observable): Int = x(DateTime.now()).toInt
-  def toLong(x: Observable): Long = x(DateTime.now()).toLong
-  def toFloat(x: Observable): Float = x(DateTime.now()).toFloat
-  def toDouble(x: Observable): Double = x(DateTime.now())
+  def minus(x: Observable, y: Observable) =
+    d => x(d) - y(d)
+
+  def times(x: Observable, y: Observable) =
+    d => x(d) * y(d)
+
+  def negate(x: Observable): Observable =
+    d => -x(d)
+
+  def const(x: Double): Observable =
+    d => x
+
+  def fromInt(x: Int): Observable =
+    const(x)
+
+  def toInt(x: Observable): Int =
+    x(DateTime.now()).toInt
+
+  def toLong(x: Observable): Long =
+    x(DateTime.now()).toLong
+
+  def toFloat(x: Observable): Float =
+    x(DateTime.now()).toFloat
+
+  def toDouble(x: Observable): Double =
+    x(DateTime.now())
 
   def compare(x: Observable, y: Observable): Int = {
     val now = DateTime.now()
     x(now) compare y(now)
   }
+
 }
