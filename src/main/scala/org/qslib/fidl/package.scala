@@ -17,15 +17,16 @@
 package org.qslib
 
 import org.joda.time.DateTime
+import org.joda.time.format.DateTimeFormat
 
 package object fidl {
 
-  val Now = DateTime.now
-  val InfiniteHorizon = new DateTime(10000, 0, 0, 0, 0)
+  val Today = DateTime.now.toLocalDate.toDateTimeAtStartOfDay
+  val InfiniteHorizon = new DateTime(10000, 1, 1, 0, 0)
 
-  type Observable = DateTime => Double
+  val DateFormatter = DateTimeFormat.forPattern("yyyyMMdd")
 
-  object Implicits extends ObservableIsNumeric with ContractOps
+  object Implicits extends ObservableIsNumeric with ContractCombinator
 
   sealed trait Side {
     def unary_- : Side

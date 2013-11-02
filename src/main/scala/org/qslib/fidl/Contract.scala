@@ -18,37 +18,46 @@ package org.qslib.fidl
 
 import com.github.nscala_time.time.Imports._
 import java.util.Currency
-import Implicits._
 
 trait Contract {
 
   def start: DateTime
   def expiry: DateTime
 
-  def give: Contract
-  def get: Contract
-  def truncate(date: DateTime): Contract
+  def isZero: Boolean = false
 
-  def and(other: Contract): Contract =
-    And(this, other)
-
-  final def andGive(other: Contract): Contract =
-    and(other.give)
+  def and(other: Contract) =
+    if (this.isZero) other
+    else if (other.isZero) this
+    else And(this, other)
 
 }
 
-trait ContractOps {
+trait ContractCombinator {
 
-  def give(contract: Contract): Contract =
-    contract.give
+  def Zero(currency: Currency): BaseContract =
+    BaseContract(Implicits.zero, currency)
+
+  def One(currency: Currency): BaseContract =
+    BaseContract(Implicits.one, currency)
 
   def get(contract: Contract): Contract =
-    contract.get
+    contract match {
+      case base: BaseContract => base.get
+      case And(left, right) => And(get(left), get(right))
+    }
 
-  def truncate(contract: Contract) = new {
-    def at(date: DateTime) =
-      contract.truncate(date)
-  }
+  def give(contract: Contract): Contract =
+    contract match {
+      case base: BaseContract => base.give
+      case And(left, right) => And(give(left), give(right))
+    }
+
+  def truncate(date: DateTime, contract: Contract): Contract =
+    contract match {
+      case base: BaseContract => base.truncate(date)
+      case And(left, right) => And(truncate(date, left), truncate(date, right))
+    }
 
 }
 
@@ -60,49 +69,38 @@ case class And(left: Contract, right: Contract) extends Contract {
   override val expiry =
     if (left.expiry < right.expiry) right.expiry else left.expiry
 
-  override def give: Contract =
-    And(left.give, right.give)
-
-  override def get: Contract =
-    And(left.get, right.get)
-
-  override def truncate(date: DateTime) =
-    And(left.truncate(date), right.truncate(date))
-
   override def toString =
-    left + " and " + right
+    s"($left) and ($right)"
 
 }
 
-case class BaseContract(obs: Observable,
+case class BaseContract(underlying: Observable,
                         currency: Currency,
-                        start: DateTime = Now,
+                        start: DateTime = Today,
                         expiry: DateTime = InfiniteHorizon,
                         side: Side = Buy) extends Contract {
 
-  override def give =
-    copy(side = -side)
+  override def isZero: Boolean =
+    underlying.desc == "0.0" || underlying.desc == "-0.0"
 
-  override def get =
-    if (expiry == InfiniteHorizon) this
+  def give =
+    if (isZero) this
+    else copy(side = -side)
+
+  def get =
+    if (isZero || expiry == InfiniteHorizon) this
     else copy(start = expiry)
 
-  override def truncate(date: DateTime) =
-    if (expiry == InfiniteHorizon) this
+  def truncate(date: DateTime) =
+    if (isZero) this
     else copy(expiry = date)
 
-}
+  override def toString = {
+    val action = if (side == Buy) "receive" else "pay"
+    val startStr = if (start == Today) "now" else "at " + start.toString(DateFormatter)
+    val expiryStr = if (expiry == InfiniteHorizon) "" else "until " + expiry.toString(DateFormatter)
 
-object Zero {
-
-  def apply(currency: Currency) =
-    BaseContract(zero, currency)
-
-}
-
-object One {
-
-  def apply(currency: Currency) =
-    BaseContract(one, currency)
+    s"$action $underlying $currency $startStr$expiryStr"
+  }
 
 }

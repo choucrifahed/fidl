@@ -18,22 +18,33 @@ package org.qslib.fidl
 
 import org.joda.time.DateTime
 
+case class Observable(desc: String, f: DateTime => Double) {
+  def apply(date: DateTime): Double = f(date)
+
+  override def hashCode() = desc.hashCode
+
+  override def equals(obj: scala.Any) =
+    obj.isInstanceOf[Observable] && obj.asInstanceOf[Observable].desc == desc
+
+  override def toString = desc
+}
+
 trait ObservableIsNumeric extends Numeric[Observable] {
 
   def plus(x: Observable, y: Observable) =
-    d => x(d) + y(d)
+    Observable(x.desc + " + " + y.desc, d => x(d) + y(d))
 
   def minus(x: Observable, y: Observable) =
-    d => x(d) - y(d)
+    Observable(x.desc + " - " + y.desc, d => x(d) - y(d))
 
   def times(x: Observable, y: Observable) =
-    d => x(d) * y(d)
+    Observable(x.desc + " * " + y.desc, d => x(d) * y(d))
 
   def negate(x: Observable): Observable =
-    d => -x(d)
+    Observable("-" + x.desc, d => -x(d))
 
   def const(x: Double): Observable =
-    d => x
+    Observable(s"$x", d => x)
 
   def fromInt(x: Int): Observable =
     const(x)
