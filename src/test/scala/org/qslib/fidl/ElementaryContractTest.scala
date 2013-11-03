@@ -24,7 +24,7 @@ import java.util.Currency
 import Implicits._
 
 @RunWith(classOf[JUnitRunner])
-class BasicContractTest extends Spec with ShouldMatchers {
+class ElementaryContractTest extends Spec with ShouldMatchers {
 
   val EUR = Currency.getInstance("EUR")
 
@@ -50,6 +50,10 @@ class BasicContractTest extends Spec with ShouldMatchers {
 
       def `under truncate` {
         Zero(EUR).truncate(Today + 1.year) should equal(Zero(EUR))
+      }
+
+      def `under scale` {
+        Zero(EUR).scale(100.0) should equal(Zero(EUR))
       }
     }
   }
@@ -79,6 +83,12 @@ class BasicContractTest extends Spec with ShouldMatchers {
       def `should change the start date if expiry is set` {
         val expiry = Today + 1.year
         One(EUR).truncate(expiry).get.start should equal(expiry)
+      }
+    }
+
+    object `when scaled` {
+      def `should only keep the incoming observable` {
+        One(EUR).scale(100.0).toString should be("receive 100.0 EUR today")
       }
     }
   }

@@ -18,6 +18,7 @@ package org.qslib.fidl
 
 import com.github.nscala_time.time.Imports._
 import java.util.Currency
+import Implicits._
 
 trait Contract {
 
@@ -33,35 +34,50 @@ trait Contract {
 
 }
 
-trait ContractCombinator {
+trait ContractTree extends Contract {
 
-  def Zero(currency: Currency): BaseContract =
-    BaseContract(Implicits.zero, currency)
+  def left: Contract
+  def right: Contract
 
-  def One(currency: Currency): BaseContract =
-    BaseContract(Implicits.one, currency)
+}
+
+trait ContractPrimitive {
+
+  def Zero(currency: Currency): ElementaryContract =
+    ElementaryContract(Implicits.zero, currency)
+
+  def One(currency: Currency): ElementaryContract =
+    ElementaryContract(Implicits.one, currency)
 
   def get(contract: Contract): Contract =
     contract match {
-      case base: BaseContract => base.get
+      case contract: ElementaryContract => contract.get
       case And(left, right) => And(get(left), get(right))
     }
 
   def give(contract: Contract): Contract =
     contract match {
-      case base: BaseContract => base.give
+      case contract: ElementaryContract => contract.give
       case And(left, right) => And(give(left), give(right))
     }
 
   def truncate(date: DateTime, contract: Contract): Contract =
     contract match {
-      case base: BaseContract => base.truncate(date)
+      case contract: ElementaryContract => contract.truncate(date)
       case And(left, right) => And(truncate(date, left), truncate(date, right))
     }
 
+  def scale(observable: Observable, contract: Contract): Contract =
+    contract match {
+      case contract: ElementaryContract => contract.scale(observable)
+      case And(left, right) => And(scale(observable, left), scale(observable, right))
+    }
+
+  def scale(constant: Double, contract: Contract): Contract =
+    scale(const(constant), contract)
 }
 
-case class And(left: Contract, right: Contract) extends Contract {
+case class And(left: Contract, right: Contract) extends ContractTree {
 
   override val start =
     if (left.start < right.start) left.start else right.start
@@ -74,14 +90,22 @@ case class And(left: Contract, right: Contract) extends Contract {
 
 }
 
-case class BaseContract(underlying: Observable,
-                        currency: Currency,
-                        start: DateTime = Today,
-                        expiry: DateTime = InfiniteHorizon,
-                        side: Side = Buy) extends Contract {
+case class ElementaryContract(observable: Observable,
+                              currency: Currency,
+                              start: DateTime = Today,
+                              expiry: DateTime = InfiniteHorizon,
+                              side: Side = Buy) extends Contract {
 
   override def isZero: Boolean =
-    underlying.desc == "0.0" || underlying.desc == "-0.0"
+    observable.desc == "0.0" || observable.desc == "-0.0"
+
+  def scale(observable: Observable): Contract =
+    if (isZero) this
+    else if (this.observable.desc == "1.0") copy(observable = observable)
+    else copy(observable = this.observable * observable)
+
+  def scale(constant: Double): Contract =
+    scale(const(constant))
 
   def give =
     if (isZero) this
@@ -97,10 +121,10 @@ case class BaseContract(underlying: Observable,
 
   override def toString = {
     val action = if (side == Buy) "receive" else "pay"
-    val startStr = if (start == Today) "now" else "at " + start.toString(DateFormatter)
+    val startStr = if (start == Today) "today" else "at " + start.toString(DateFormatter)
     val expiryStr = if (expiry == InfiniteHorizon) "" else "until " + expiry.toString(DateFormatter)
 
-    s"$action $underlying $currency $startStr$expiryStr"
+    s"$action $observable $currency $startStr$expiryStr"
   }
 
 }

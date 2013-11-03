@@ -24,7 +24,7 @@ import Implicits._
 import java.util.Currency
 
 @RunWith(classOf[JUnitRunner])
-class ContractCombinatorTest extends Spec with ShouldMatchers {
+class ContractTreeTest extends Spec with ShouldMatchers {
 
   val EUR = Currency.getInstance("EUR")
 
@@ -44,8 +44,13 @@ class ContractCombinatorTest extends Spec with ShouldMatchers {
       def `get and truncate` {
         val expiry = Today + 1.year
         val result = get(One(EUR) and One(EUR).truncate(expiry)).asInstanceOf[And]
-        result.left.asInstanceOf[BaseContract].start should be(Today)
-        result.right.asInstanceOf[BaseContract].start should equal(expiry)
+        result.left.asInstanceOf[ElementaryContract].start should be(Today)
+        result.right.asInstanceOf[ElementaryContract].start should equal(expiry)
+      }
+
+      def `scale ` {
+        val input = scale(100.0, One(EUR) and One(EUR).give)
+        input.toString should be("(receive 100.0 EUR today) and (pay 100.0 EUR today)")
       }
     }
   }
