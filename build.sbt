@@ -16,7 +16,7 @@ scalacOptions <++= scalaVersion map { v =>
 libraryDependencies ++= Seq(
   "com.chuusai" % "shapeless_2.10.2" % "2.0.0-M1",
   "com.github.nscala-time" %% "nscala-time" % "0.6.0",
-  "org.scalatest" %% "scalatest" % "2.0.RC3" % "test",
+  "org.scalatest" %% "scalatest" % "2.0" % "test",
   "org.scalacheck" %% "scalacheck" % "1.11.0" % "test",
   "junit" % "junit" % "4.11" % "test"
 )
