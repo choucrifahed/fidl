@@ -85,40 +85,32 @@ trait ObservablePrimitives {
     def and(other: Observable[Boolean]): Observable[Boolean] =
       lift2[Boolean, Boolean, Boolean]((a, b) => a || b, (id1, id2) => s"$id1 and $id2", observable, other)
   }
+
 }
 
-trait NumericObservable extends ObservablePrimitives with Numeric[Observable[Double]] {
+trait NumericObservable extends ObservablePrimitives {
 
-  override final def plus(x: Observable[Double], y: Observable[Double]) =
+  final def plus(x: Observable[Double], y: Observable[Double]) =
     Observable(x.id + " + " + y.id, d => x(d) + y(d))
 
-  override final def minus(x: Observable[Double], y: Observable[Double]) =
+  final def minus(x: Observable[Double], y: Observable[Double]) =
     Observable(x.id + " - " + y.id, d => x(d) - y(d))
 
-  override final def times(x: Observable[Double], y: Observable[Double]) =
+  final def times(x: Observable[Double], y: Observable[Double]) =
     Observable(x.id + " * " + y.id, d => x(d) * y(d))
 
-  override final def negate(x: Observable[Double]): Observable[Double] =
+  final def negate(x: Observable[Double]): Observable[Double] =
     Observable("-" + x.id, d => -x(d))
 
-  override final def fromInt(x: Int): Observable[Double] =
-    const(x)
+  def abs(x: Observable[Double]): Observable[Double] =
+    Observable("abs(" + x.id + ")", d => x(d).abs)
 
-  override final def toInt(x: Observable[Double]): Int =
-    x(DateTime.now).toInt
-
-  override final def toLong(x: Observable[Double]): Long =
-    x(DateTime.now).toLong
-
-  override final def toFloat(x: Observable[Double]): Float =
-    x(DateTime.now).toFloat
-
-  override final def toDouble(x: Observable[Double]): Double =
-    x(DateTime.now)
-
-  override final def compare(x: Observable[Double], y: Observable[Double]): Int = {
-    val now = DateTime.now
-    x(now) compare y(now)
+  implicit class Ops(val lhs: Observable[Double]) {
+    def +(rhs: Observable[Double]) = plus(lhs, rhs)
+    def -(rhs: Observable[Double]) = minus(lhs, rhs)
+    def *(rhs: Observable[Double]) = times(lhs, rhs)
+    def unary_- = negate(lhs)
+    def abs: Observable[Double] = NumericObservable.this.abs(lhs)
   }
 
 }

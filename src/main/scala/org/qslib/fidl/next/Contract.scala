@@ -20,59 +20,58 @@ import java.util.Currency
 import org.qslib.fidl.{NumericObservable, Observable}
 import org.joda.time.DateTime
 
-
-trait Contract
+sealed trait Contract
 
 trait ContractPrimitives {
 
   /** Zero is a contract that has no rights and no obligations. */
-  def zeroC: Contract
+  case object zeroC extends Contract
 
   /** If you acquire one(k), you immediately receive one unit of the currency k. */
-  def one(currency: Currency): Contract
+  case class one(currency: Currency) extends Contract
 
   /** To acquire give(c) is to acquire all of c's rights as obligations, and vice versa. */
-  def give(contract: Contract): Contract
+  case class give(contract: Contract) extends Contract
 
   /** If you acquire c1 and c2, you immediately acquire both c1 and c2. */
-  def and(contract1: Contract, contract2: Contract): Contract
+  case class and(contract1: Contract, contract2: Contract) extends Contract
 
   /** If you acquire c1 or c2 you must immediately acquire your choice of either c1 or c2 (but not both). */
-  def or(contract1: Contract, contract2: Contract): Contract
+  case class or(contract1: Contract, contract2: Contract) extends Contract
 
   /**
    * If you acquire cond(b, c1, c2), you acquire c1 if the observable b is true at the moment of acquisition, and
    * c2 otherwise.
    */
-  def cond(observable: Observable[Boolean], contract1: Contract, contract2: Contract): Contract
+  case class cond(observable: Observable[Boolean], contract1: Contract, contract2: Contract) extends Contract
 
   /**
    * If you acquire scale(o, c), then you acquire c at the same moment, except that all the payments of c are
    * multiplied by the value of the observable o at the moment of acquisition.
    */
-  def scale(observable: Observable[Double], contract: Contract): Contract
+  case class scale(observable: Observable[Double], contract: Contract) extends Contract
 
   /**
    * If you acquire when(o, c), you must acquire c as soon as observable o subsequently becomes true.
    * It is therefore worthless in states where o will never again be true.
    */
-  def when(observable: Observable[Boolean], contract: Contract): Contract
+  case class when(observable: Observable[Boolean], contract: Contract) extends Contract
 
   /**
    * Once you acquire anytime(o, c), you may acquire at any time the observable o is true. The compound contract is
    * therefore worthless in states where o will never again be true.
    */
-  def anytime(observable: Observable[Boolean], contract: Contract): Contract
+  case class anytime(observable: Observable[Boolean], contract: Contract) extends Contract
 
   /**
    * Once acquired, until (o, c) is exactly like c except that it must be abandoned when observable o becomes true.
    * In states in which o is true, the compound contract is therefore worthless, because it must be abandoned
    * immediately.
    */
-  def until(observable: Observable[Boolean], contract: Contract): Contract
+  case class until(observable: Observable[Boolean], contract: Contract) extends Contract
 
   /** Syntactic sugar */
-  implicit class ContractOps(val contract: Contract) {
+  implicit class Ops(val contract: Contract) {
     def unary_- = give(contract)
     def &&(other: Contract) = and(other)
     def ||(other: Contract) = or(other)

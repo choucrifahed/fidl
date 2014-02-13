@@ -45,10 +45,10 @@ sealed trait Contract {
 trait ContractPrimitive {
 
   def Zero(currency: Currency): ElementaryContract =
-    ElementaryContract(Implicits.zero, currency)
+    ElementaryContract(const(0.0), currency)
 
   def One(currency: Currency): ElementaryContract =
-    ElementaryContract(Implicits.one, currency)
+    ElementaryContract(const(1.0), currency)
 
   def anytime(contract: Contract): Contract =
     contract match {
