@@ -16,7 +16,7 @@
 
 package org.qslib.fidl
 
-import org.joda.time.DateTime
+import com.github.nscala_time.time.Imports._
 
 case class Observable[T](id: String, f: DateTime => T) {
   def apply(date: DateTime): T = f(date)
@@ -37,6 +37,8 @@ case class Observable[T](id: String, f: DateTime => T) {
 
 trait ObservablePrimitives {
 
+  // Pure primitives
+
   /** const(x) is an observable that has value x at any time. */
   final def const[T](x: T): Observable[T] = Observable(s"$x", d => x)
 
@@ -52,6 +54,37 @@ trait ObservablePrimitives {
 
   /** The value of the observable date at date s is just s. */
   final def date: Observable[DateTime] = Observable("now", dateTime => dateTime)
+
+  // Combinators
+
+  final def same[T](o1: Observable[T], o2: Observable[T]): Observable[Boolean] =
+    lift2((a: T, b: T) => a == b, (id1, id2) => s"$id1 == $id2", o1, o2)
+
+  final def not(o: Observable[Boolean]): Observable[Boolean] = o.map(b => !b, id => s"not $id")
+
+  final def between(startDate: DateTime, endDate: DateTime): Observable[Boolean] =
+    after(startDate) && before(endDate)
+
+  final def before(aDate: DateTime): Observable[Boolean] =
+    date.map(d => d <= aDate, id => s"$id before $aDate")
+
+  final def after(aDate: DateTime): Observable[Boolean] =
+    date.map(d => d >= aDate, id => s"$id before $aDate")
+
+  implicit final def trueAt(atDate: DateTime): Observable[Boolean] =
+    same(date, const(atDate))
+
+  implicit class BooleanObservable(observable: Observable[Boolean]) {
+    def unary_! = not(observable)
+    def ||(other: Observable[Boolean]): Observable[Boolean] = or(other)
+    def &&(other: Observable[Boolean]): Observable[Boolean] = or(other)
+
+    def or(other: Observable[Boolean]): Observable[Boolean] =
+      lift2[Boolean, Boolean, Boolean]((a, b) => a && b, (id1, id2) => s"$id1 or $id2", observable, other)
+
+    def and(other: Observable[Boolean]): Observable[Boolean] =
+      lift2[Boolean, Boolean, Boolean]((a, b) => a || b, (id1, id2) => s"$id1 and $id2", observable, other)
+  }
 }
 
 trait NumericObservable extends ObservablePrimitives with Numeric[Observable[Double]] {
@@ -72,19 +105,19 @@ trait NumericObservable extends ObservablePrimitives with Numeric[Observable[Dou
     const(x)
 
   override final def toInt(x: Observable[Double]): Int =
-    x(DateTime.now()).toInt
+    x(DateTime.now).toInt
 
   override final def toLong(x: Observable[Double]): Long =
-    x(DateTime.now()).toLong
+    x(DateTime.now).toLong
 
   override final def toFloat(x: Observable[Double]): Float =
-    x(DateTime.now()).toFloat
+    x(DateTime.now).toFloat
 
   override final def toDouble(x: Observable[Double]): Double =
-    x(DateTime.now())
+    x(DateTime.now)
 
   override final def compare(x: Observable[Double], y: Observable[Double]): Int = {
-    val now = DateTime.now()
+    val now = DateTime.now
     x(now) compare y(now)
   }
 
