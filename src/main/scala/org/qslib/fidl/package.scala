@@ -26,7 +26,7 @@ package object fidl {
 
   val DateFormatter = DateTimeFormat.forPattern("yyyyMMdd")
 
-  object Implicits extends ObservableIsNumeric with ContractPrimitive
+  object Implicits extends NumericObservable with ContractPrimitive
 
   sealed trait Side {
     def unary_- : Side

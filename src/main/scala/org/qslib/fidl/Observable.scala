@@ -18,50 +18,72 @@ package org.qslib.fidl
 
 import org.joda.time.DateTime
 
-case class Observable(desc: String, f: DateTime => Double) {
-  def apply(date: DateTime): Double = f(date)
+case class Observable[T](id: String, f: DateTime => T) {
+  def apply(date: DateTime): T = f(date)
 
-  override def hashCode() = desc.hashCode
+  def map[U](g: T => U, gId: String => String = s => s"g($s)"): Observable[U] =
+    Observable[U](gId(id), f andThen g)
+
+  def flatMap[U](g: T => Observable[U], gId: String => String = s => s"flatMap(g($s))") =
+    Observable[U](gId(id), d => g(f(d)).f(d))
+
+  override def hashCode() = id.hashCode
 
   override def equals(obj: scala.Any) =
-    obj.isInstanceOf[Observable] && obj.asInstanceOf[Observable].desc == desc
+    obj.isInstanceOf[Observable[T]] && obj.asInstanceOf[Observable[T]].id == id
 
-  override def toString = desc
+  override def toString = id
 }
 
-trait ObservableIsNumeric extends Numeric[Observable] {
+trait ObservablePrimitives {
 
-  def plus(x: Observable, y: Observable) =
-    Observable(x.desc + " + " + y.desc, d => x(d) + y(d))
+  /** const(x) is an observable that has value x at any time. */
+  final def const[T](x: T): Observable[T] = Observable(s"$x", d => x)
 
-  def minus(x: Observable, y: Observable) =
-    Observable(x.desc + " - " + y.desc, d => x(d) - y(d))
+  /**
+   * lift2(f, o1, o2) is the observable whose value is the result of applying f to the values of the observables
+   * o1 and o2.
+   */
+  final def lift2[A, B, C](f: (A, B) => C,
+                           fId: (String, String) => String,
+                           o1: Observable[A],
+                           o2: Observable[B]): Observable[C] =
+    Observable(fId(o1.id, o2.id), d => f(o1(d), o2(d)))
 
-  def times(x: Observable, y: Observable) =
-    Observable(x.desc + " * " + y.desc, d => x(d) * y(d))
+  /** The value of the observable date at date s is just s. */
+  final def date: Observable[DateTime] = Observable("now", dateTime => dateTime)
+}
 
-  def negate(x: Observable): Observable =
-    Observable("-" + x.desc, d => -x(d))
+trait NumericObservable extends ObservablePrimitives with Numeric[Observable[Double]] {
 
-  def const(x: Double): Observable =
-    Observable(s"$x", d => x)
+  override final def plus(x: Observable[Double], y: Observable[Double]) =
+    Observable(x.id + " + " + y.id, d => x(d) + y(d))
 
-  def fromInt(x: Int): Observable =
+  override final def minus(x: Observable[Double], y: Observable[Double]) =
+    Observable(x.id + " - " + y.id, d => x(d) - y(d))
+
+  override final def times(x: Observable[Double], y: Observable[Double]) =
+    Observable(x.id + " * " + y.id, d => x(d) * y(d))
+
+  override final def negate(x: Observable[Double]): Observable[Double] =
+    Observable("-" + x.id, d => -x(d))
+
+  override final def fromInt(x: Int): Observable[Double] =
     const(x)
 
-  def toInt(x: Observable): Int =
+  override final def toInt(x: Observable[Double]): Int =
     x(DateTime.now()).toInt
 
-  def toLong(x: Observable): Long =
+  override final def toLong(x: Observable[Double]): Long =
     x(DateTime.now()).toLong
 
-  def toFloat(x: Observable): Float =
+  override final def toFloat(x: Observable[Double]): Float =
     x(DateTime.now()).toFloat
 
-  def toDouble(x: Observable): Double =
+  override final def toDouble(x: Observable[Double]): Double =
     x(DateTime.now())
 
-  def compare(x: Observable, y: Observable): Int = {
+  override final def compare(x: Observable[Double], y: Observable[Double]): Int = {
     val now = DateTime.now()
     x(now) compare y(now)
   }

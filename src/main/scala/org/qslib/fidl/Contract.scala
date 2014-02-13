@@ -19,11 +19,11 @@ package org.qslib.fidl
 import com.github.nscala_time.time.Imports._
 import java.util.Currency
 import Implicits._
-import scala.reflect.ClassTag
 
 sealed trait Contract {
 
   def start: DateTime
+
   def expiry: DateTime
 
   def isZero: Boolean = false
@@ -78,7 +78,7 @@ trait ContractPrimitive {
       case Or(left, right) => Or(truncate(date, left), truncate(date, right))
     }
 
-  def scale(observable: Observable, contract: Contract): Contract =
+  def scale(observable: Observable[Double], contract: Contract): Contract =
     contract match {
       case contract: ElementaryContract => contract.scale(observable)
       case And(left, right) => And(scale(observable, left), scale(observable, right))
@@ -115,18 +115,18 @@ case class Or(left: Contract, right: Contract) extends Contract {
 
 }
 
-case class ElementaryContract(observable: Observable,
+case class ElementaryContract(observable: Observable[Double],
                               currency: Currency,
                               start: DateTime = Today,
                               expiry: DateTime = InfiniteHorizon,
                               side: Side = Buy) extends Contract {
 
   override def isZero: Boolean =
-    observable.desc == "0.0" || observable.desc == "-0.0"
+    observable.id == "0.0" || observable.id == "-0.0"
 
-  def scale(observable: Observable): ElementaryContract =
+  def scale(observable: Observable[Double]): ElementaryContract =
     if (isZero) this
-    else if (this.observable.desc == "1.0") copy(observable = observable)
+    else if (this.observable.id == "1.0") copy(observable = observable)
     else copy(observable = this.observable * observable)
 
   def scale(constant: Double): ElementaryContract =
