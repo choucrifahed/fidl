@@ -16,143 +16,104 @@
 
 package org.qslib.fidl
 
-import com.github.nscala_time.time.Imports._
-import java.util.Currency
-import Implicits._
+sealed trait Contract
 
-sealed trait Contract {
+trait ContractPrimitives extends Common {
 
-  def start: DateTime
+  /** Zero is a contract that has no rights and no obligations. */
+  case object zero extends Contract
 
-  def expiry: DateTime
+  /** If you acquire one(k), you immediately receive one unit of the currency k. */
+  case class one(currency: Currency) extends Contract
 
-  def isZero: Boolean = false
+  /** To acquire give(c) is to acquire all of c's rights as obligations, and vice versa. */
+  case class give(contract: Contract) extends Contract
 
-  final def and(other: Contract) =
-    if (this.isZero || this.hasExpired) other
-    else if (other.isZero || other.hasExpired) this
-    else And(this, other)
+  /** If you acquire c1 and c2, you immediately acquire both c1 and c2. */
+  case class and(contract1: Contract, contract2: Contract) extends Contract
 
-  final def or(other: Contract) =
-    if (this.isZero || this.hasExpired) other
-    else if (other.isZero || other.hasExpired) this
-    else Or(this, other)
+  /** If you acquire c1 or c2 you must immediately acquire your choice of either c1 or c2 (but not both). */
+  case class or(contract1: Contract, contract2: Contract) extends Contract
 
-  final def hasExpired: Boolean =
-    expiry < Today
-}
+  /**
+   * If you acquire cond(b, c1, c2), you acquire c1 if the observable b is true at the moment of acquisition, and
+   * c2 otherwise.
+   */
+  case class cond(observable: Observable[Boolean], contract1: Contract, contract2: Contract) extends Contract
 
-trait ContractPrimitive {
+  /**
+   * If you acquire scale(o, c), then you acquire c at the same moment, except that all the payments of c are
+   * multiplied by the value of the observable o at the moment of acquisition.
+   */
+  case class scale(observable: Observable[Double], contract: Contract) extends Contract
 
-  def Zero(currency: Currency): ElementaryContract =
-    ElementaryContract(const(0.0), currency)
+  /**
+   * If you acquire when(o, c), you must acquire c as soon as observable o subsequently becomes true.
+   * It is therefore worthless in states where o will never again be true.
+   */
+  case class when(observable: Observable[Boolean], contract: Contract) extends Contract
 
-  def One(currency: Currency): ElementaryContract =
-    ElementaryContract(const(1.0), currency)
+  /**
+   * Once you acquire anytime(o, c), you may acquire at any time the observable o is true. The compound contract is
+   * therefore worthless in states where o will never again be true.
+   */
+  case class anytime(observable: Observable[Boolean], contract: Contract) extends Contract
 
-  def anytime(contract: Contract): Contract =
-    contract match {
-      case contract: ElementaryContract => contract.anytime
-      case And(left, right) => And(anytime(left), anytime(right))
-      case Or(left, right) => Or(anytime(left), anytime(right))
+  /**
+   * Once acquired, until (o, c) is exactly like c except that it must be abandoned when observable o becomes true.
+   * In states in which o is true, the compound contract is therefore worthless, because it must be abandoned
+   * immediately.
+   */
+  case class until(observable: Observable[Boolean], contract: Contract) extends Contract
+
+  /** Syntactic sugar */
+  implicit class Ops(val contract: Contract) {
+    def unary_- = give(contract)
+    def &&(other: Contract) = and(other)
+    def ||(other: Contract) = or(other)
+    def *(observable: Observable[Double]) = scale(observable)
+    def at(observable: Observable[Boolean]) = when(observable)
+
+    def and(other: Contract) = ContractPrimitives.this.and(contract, other)
+    def or(other: Contract) = ContractPrimitives.this.or(contract, other)
+    def scale(observable: Observable[Double]) = ContractPrimitives.this.scale(observable, contract)
+    def when(observable: Observable[Boolean]) = ContractPrimitives.this.when(observable, contract)
+    def anytime(observable: Observable[Boolean]) = ContractPrimitives.this.anytime(observable, contract)
+    def until(observable: Observable[Boolean]) = ContractPrimitives.this.until(observable, contract)
+
+    def onlyIf(observable: Observable[Boolean]) = new {
+      def otherwise(other: Contract) = cond(observable, contract, other)
     }
-
-  def get(contract: Contract): Contract =
-    contract match {
-      case contract: ElementaryContract => contract.get
-      case And(left, right) => And(get(left), get(right))
-      case Or(left, right) => Or(get(left), get(right))
-    }
-
-  def give(contract: Contract): Contract =
-    contract match {
-      case contract: ElementaryContract => contract.give
-      case And(left, right) => And(give(left), give(right))
-      case Or(left, right) => Or(give(left), give(right))
-    }
-
-  def truncate(date: DateTime, contract: Contract): Contract =
-    contract match {
-      case contract: ElementaryContract => contract.truncate(date)
-      case And(left, right) => And(truncate(date, left), truncate(date, right))
-      case Or(left, right) => Or(truncate(date, left), truncate(date, right))
-    }
-
-  def scale(observable: Observable[Double], contract: Contract): Contract =
-    contract match {
-      case contract: ElementaryContract => contract.scale(observable)
-      case And(left, right) => And(scale(observable, left), scale(observable, right))
-      case Or(left, right) => Or(scale(observable, left), scale(observable, right))
-    }
-
-  def scale(constant: Double, contract: Contract): Contract =
-    scale(const(constant), contract)
-}
-
-case class And(left: Contract, right: Contract) extends Contract {
-
-  override val start =
-    if (left.start < right.start) left.start else right.start
-
-  override val expiry =
-    if (left.expiry < right.expiry) right.expiry else left.expiry
-
-  override def toString =
-    s"($left) and ($right)"
+  }
 
 }
 
-case class Or(left: Contract, right: Contract) extends Contract {
+trait CommonContracts extends ContractPrimitives with NumericObservable {
 
-  override val start =
-    if (left.start < right.start) left.start else right.start
+  /** Immediately receive an amount of cash in a given currency. */
+  final def cash(amount: Double, currency: Currency): Contract = one(currency) * const(amount)
 
-  override val expiry =
-    if (left.expiry < right.expiry) right.expiry else left.expiry
+  /** Zero Coupon Bond: receive an amount of cash in a given currency at a payment date. */
+  final def zcb(amount: Double, currency: Currency, date: Date): Contract = cash(amount, currency) at date
 
-  override def toString =
-    s"($left) or ($right)"
+  /** A European option gives the right to acquire an underlying contract only at expiry. */
+  final def european(underlying: Contract, expiry: Date): Contract = (underlying or zero) at expiry
 
-}
+  /** An American option gives the right to acquire an underlying contract anytime between two dates. */
+  final def american(underlying: Contract, start: Date, expiry: Date): Contract =
+    (underlying or zero) anytime between(start, expiry)
 
-case class ElementaryContract(observable: Observable[Double],
-                              currency: Currency,
-                              start: DateTime = Today,
-                              expiry: DateTime = InfiniteHorizon,
-                              side: Side = Buy) extends Contract {
+  /** A knock-in barrier option gives the right to acquire the underlying contract only when the barrier is broken. */
+  final def knockIn(underlying: Contract, start: Date, expiry: Date, barrier: Observable[Boolean]): Contract =
+    american(underlying, start, expiry) when barrier
 
-  override def isZero: Boolean =
-    observable.id == "0.0" || observable.id == "-0.0"
+  /** A knock-out barrier option gives the right to acquire the underlying contract until the barrier is broken. */
+  final def knockOut(underlying: Contract, start: Date, expiry: Date, barrier: Observable[Boolean]): Contract =
+    american(underlying, start, expiry) until barrier
 
-  def scale(observable: Observable[Double]): ElementaryContract =
-    if (isZero) this
-    else if (this.observable.id == "1.0") copy(observable = observable)
-    else copy(observable = this.observable * observable)
-
-  def scale(constant: Double): ElementaryContract =
-    scale(const(constant))
-
-  def give: ElementaryContract =
-    if (isZero) this
-    else copy(side = -side)
-
-  def get: ElementaryContract =
-    if (isZero || expiry == InfiniteHorizon) this
-    else copy(start = expiry)
-
-  def anytime: ElementaryContract =
-    copy(start = Today)
-
-  def truncate(date: DateTime): ElementaryContract =
-    if (isZero) this
-    else copy(expiry = date)
-
-  override def toString = {
-    val action = if (side == Buy) "receive" else "pay"
-    val startStr = if (start == Today) "today" else "at " + start.toString(DateFormatter)
-    val expiryStr = if (expiry == InfiniteHorizon) "" else "until " + expiry.toString(DateFormatter)
-
-    s"$action $observable $currency $startStr$expiryStr"
+  implicit class DoubleToCash(amount: Double) {
+    // TODO think of a more elegant syntax, maybe use macros
+    def *(currency: Currency) = cash(amount, currency)
   }
 
 }

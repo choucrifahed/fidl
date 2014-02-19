@@ -16,10 +16,10 @@
 
 package org.qslib.fidl
 
-import com.github.nscala_time.time.Imports._
+import Common.Date
 
-case class Observable[T](id: String, f: DateTime => T) {
-  def apply(date: DateTime): T = f(date)
+case class Observable[T](id: String, f: Date => T) {
+  def apply(date: Date): T = f(date)
 
   def map[U](g: T => U, gId: String => String = s => s"g($s)"): Observable[U] =
     Observable[U](gId(id), f andThen g)
@@ -35,7 +35,7 @@ case class Observable[T](id: String, f: DateTime => T) {
   override def toString = id
 }
 
-trait ObservablePrimitives {
+trait ObservablePrimitives extends Common {
 
   // Pure primitives
 
@@ -53,7 +53,7 @@ trait ObservablePrimitives {
     Observable(fId(o1.id, o2.id), d => f(o1(d), o2(d)))
 
   /** The value of the observable date at date s is just s. */
-  final def date: Observable[DateTime] = Observable("now", dateTime => dateTime)
+  final def date: Observable[Date] = Observable("now", dateTime => dateTime)
 
   // Combinators
 
@@ -62,16 +62,16 @@ trait ObservablePrimitives {
 
   final def not(o: Observable[Boolean]): Observable[Boolean] = o.map(b => !b, id => s"not $id")
 
-  final def between(startDate: DateTime, endDate: DateTime): Observable[Boolean] =
+  final def between(startDate: Date, endDate: Date): Observable[Boolean] =
     after(startDate) && before(endDate)
 
-  final def before(aDate: DateTime): Observable[Boolean] =
+  final def before(aDate: Date): Observable[Boolean] =
     date.map(d => d <= aDate, id => s"$id before $aDate")
 
-  final def after(aDate: DateTime): Observable[Boolean] =
+  final def after(aDate: Date): Observable[Boolean] =
     date.map(d => d >= aDate, id => s"$id before $aDate")
 
-  implicit final def trueAt(atDate: DateTime): Observable[Boolean] =
+  implicit final def trueAt(atDate: Date): Observable[Boolean] =
     same(date, const(atDate))
 
   implicit class BooleanObservable(observable: Observable[Boolean]) {
