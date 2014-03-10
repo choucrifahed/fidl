@@ -16,31 +16,63 @@
 
 package org.qslib.fidl
 
-import Common.Date
 
-case class Observable[T](id: String, f: Date => T) {
-  def apply(date: Date): T = f(date)
+trait ValueProcesses extends Common {
 
-  def map[U](g: T => U, gId: String => String = s => s"g($s)"): Observable[U] =
-    Observable[U](gId(id), f andThen g)
+  final def constProcess[T](x: T): ValueProcess[T] = Stream.continually(Seq(x))
 
-  def flatMap[U](g: T => Observable[U], gId: String => String = s => s"flatMap(g($s))") =
-    Observable[U](gId(id), d => g(f(d)).f(d))
+  implicit class Ops[T](process: ValueProcess[T]) {
 
-  override def hashCode() = id.hashCode
+    /**
+     * Determines the number of time steps in a value process.
+     * Only terminates for finite value processes.
+     */
+    def horizon = process.length
 
-  override def equals(obj: scala.Any) =
-    obj.isInstanceOf[Observable[T]] && obj.asInstanceOf[Observable[T]].id == id
+    def mapWith[U](f: T => U): ValueProcess[U] = process.map(_ map f)
 
-  override def toString = id
+    def zipWith[U, V](otherProcess: ValueProcess[U], f: (T, U) => V): ValueProcess[V] =
+      process zip otherProcess map {
+        case (rv1, rv2) => rv1 zip rv2 map {
+          case (a, b) => f(a, b)
+        }
+      }
+  }
+
+  implicit class BooleanProcess(process: ValueProcess[Boolean]) {
+
+    /**
+     * Only terminates for finite value processes.
+     * @return True if every value in a value process is true, false otherwise.
+     */
+    def allTrue: Boolean = !process.map(!_.exists(x => !x)).exists(x => !x)
+  }
+
 }
 
-trait ObservablePrimitives extends Common {
+trait Observables extends ValueProcesses {
+
+  case class Observable[T](id: String, process: ValueProcess[T]) {
+    def apply(date: Date): RandomVariable[T] = process(date)
+
+    def map[U](f: T => U, gId: String => String = s => s"g($s)"): Observable[U] =
+      Observable[U](gId(id), process mapWith f)
+
+    override def hashCode() = id.hashCode
+
+    override def equals(obj: scala.Any) =
+      obj.isInstanceOf[Observable[T]] && obj.asInstanceOf[Observable[T]].id == id
+
+    override def toString = id
+  }
 
   // Pure primitives
 
   /** const(x) is an observable that has value x at any time. */
-  final def const[T](x: T): Observable[T] = Observable(s"$x", d => x)
+  final def const[T](x: T): Observable[T] = Observable(s"$x", constProcess(x))
+
+  /** The value of the observable date at date s is just s. */
+  final def date: Observable[Date] = Observable("date", Stream.from(0).map(d => Seq(d)))
 
   /**
    * lift2(f, o1, o2) is the observable whose value is the result of applying f to the values of the observables
@@ -50,10 +82,7 @@ trait ObservablePrimitives extends Common {
                            fId: (String, String) => String,
                            o1: Observable[A],
                            o2: Observable[B]): Observable[C] =
-    Observable(fId(o1.id, o2.id), d => f(o1(d), o2(d)))
-
-  /** The value of the observable date at date s is just s. */
-  final def date: Observable[Date] = Observable("now", dateTime => dateTime)
+    Observable(fId(o1.id, o2.id), o1.process.zipWith(o2.process, f))
 
   // Combinators
 
@@ -63,7 +92,7 @@ trait ObservablePrimitives extends Common {
   final def not(o: Observable[Boolean]): Observable[Boolean] = o.map(b => !b, id => s"not $id")
 
   final def between(startDate: Date, endDate: Date): Observable[Boolean] =
-    after(startDate) && before(endDate)
+    after(startDate) and before(endDate)
 
   final def before(aDate: Date): Observable[Boolean] =
     date.map(d => d <= aDate, id => s"$id before $aDate")
@@ -76,41 +105,39 @@ trait ObservablePrimitives extends Common {
 
   implicit class BooleanObservable(observable: Observable[Boolean]) {
     def unary_! = not(observable)
-    def ||(other: Observable[Boolean]): Observable[Boolean] = or(other)
-    def &&(other: Observable[Boolean]): Observable[Boolean] = or(other)
 
     def or(other: Observable[Boolean]): Observable[Boolean] =
-      lift2[Boolean, Boolean, Boolean]((a, b) => a && b, (id1, id2) => s"$id1 or $id2", observable, other)
+      lift2((a: Boolean, b: Boolean) => a && b, (id1, id2) => s"$id1 or $id2", observable, other)
 
     def and(other: Observable[Boolean]): Observable[Boolean] =
-      lift2[Boolean, Boolean, Boolean]((a, b) => a || b, (id1, id2) => s"$id1 and $id2", observable, other)
+      lift2((a: Boolean, b: Boolean) => a || b, (id1, id2) => s"$id1 and $id2", observable, other)
   }
 
 }
 
-trait NumericObservable extends ObservablePrimitives {
+trait NumericObservables extends Observables {
 
   final def plus(x: Observable[Double], y: Observable[Double]) =
-    Observable(x.id + " + " + y.id, d => x(d) + y(d))
+    lift2((a: Double, b: Double) => a + b, (id1, id2) => id1 + " + " + id2, x, y)
 
   final def minus(x: Observable[Double], y: Observable[Double]) =
-    Observable(x.id + " - " + y.id, d => x(d) - y(d))
+    lift2((a: Double, b: Double) => a - b, (id1, id2) => id1 + " - " + id2, x, y)
 
   final def times(x: Observable[Double], y: Observable[Double]) =
-    Observable(x.id + " * " + y.id, d => x(d) * y(d))
+    lift2((a: Double, b: Double) => a * b, (id1, id2) => id1 + " * " + id2, x, y)
 
   final def negate(x: Observable[Double]): Observable[Double] =
-    Observable("-" + x.id, d => -x(d))
+    Observable("-" + x.id, x.process.mapWith((v: Double) => -v))
 
   def abs(x: Observable[Double]): Observable[Double] =
-    Observable("abs(" + x.id + ")", d => x(d).abs)
+    Observable("abs(" + x.id + ")", x.process.mapWith((v: Double) => v.abs))
 
   implicit class Ops(val lhs: Observable[Double]) {
     def +(rhs: Observable[Double]) = plus(lhs, rhs)
     def -(rhs: Observable[Double]) = minus(lhs, rhs)
     def *(rhs: Observable[Double]) = times(lhs, rhs)
     def unary_- = negate(lhs)
-    def abs: Observable[Double] = NumericObservable.this.abs(lhs)
+    def abs: Observable[Double] = NumericObservables.this.abs(lhs)
   }
 
 }

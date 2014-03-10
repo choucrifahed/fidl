@@ -27,6 +27,9 @@ trait Common {
   // type Date = org.joda.time.LocalDate
   type Currency = java.util.Currency
 
+  type RandomVariable[T] = Seq[T]
+  type ValueProcess[T] = Seq[RandomVariable[T]]
+
   val today = LocalDate.now
   val infiniteHorizon = new LocalDate(10000, 1, 1)
 

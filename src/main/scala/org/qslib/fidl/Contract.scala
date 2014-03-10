@@ -16,9 +16,10 @@
 
 package org.qslib.fidl
 
-sealed trait Contract
 
-trait ContractPrimitives extends Common {
+trait ContractTerms extends Observables {
+
+  sealed trait Contract
 
   /** Zero is a contract that has no rights and no obligations. */
   case object zero extends Contract
@@ -74,12 +75,12 @@ trait ContractPrimitives extends Common {
     def *(observable: Observable[Double]) = scale(observable)
     def at(observable: Observable[Boolean]) = when(observable)
 
-    def and(other: Contract) = ContractPrimitives.this.and(contract, other)
-    def or(other: Contract) = ContractPrimitives.this.or(contract, other)
-    def scale(observable: Observable[Double]) = ContractPrimitives.this.scale(observable, contract)
-    def when(observable: Observable[Boolean]) = ContractPrimitives.this.when(observable, contract)
-    def anytime(observable: Observable[Boolean]) = ContractPrimitives.this.anytime(observable, contract)
-    def until(observable: Observable[Boolean]) = ContractPrimitives.this.until(observable, contract)
+    def and(other: Contract) = ContractTerms.this.and(contract, other)
+    def or(other: Contract) = ContractTerms.this.or(contract, other)
+    def scale(observable: Observable[Double]) = ContractTerms.this.scale(observable, contract)
+    def when(observable: Observable[Boolean]) = ContractTerms.this.when(observable, contract)
+    def anytime(observable: Observable[Boolean]) = ContractTerms.this.anytime(observable, contract)
+    def until(observable: Observable[Boolean]) = ContractTerms.this.until(observable, contract)
 
     def onlyIf(observable: Observable[Boolean]) = new {
       def otherwise(other: Contract) = cond(observable, contract, other)
@@ -88,7 +89,7 @@ trait ContractPrimitives extends Common {
 
 }
 
-trait CommonContracts extends ContractPrimitives with NumericObservable {
+trait CommonContracts extends ContractTerms with NumericObservables {
 
   /** Immediately receive an amount of cash in a given currency. */
   final def cash(amount: Double, currency: Currency): Contract = one(currency) * const(amount)
