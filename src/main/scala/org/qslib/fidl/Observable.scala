@@ -117,13 +117,13 @@ trait Observables extends ValueProcesses {
 
 trait NumericObservables extends Observables {
 
-  final def plus(x: Observable[Double], y: Observable[Double]) =
+  final def plus(x: Observable[Double], y: Observable[Double]): Observable[Double] =
     lift2((a: Double, b: Double) => a + b, (id1, id2) => id1 + " + " + id2, x, y)
 
-  final def minus(x: Observable[Double], y: Observable[Double]) =
+  final def minus(x: Observable[Double], y: Observable[Double]): Observable[Double] =
     lift2((a: Double, b: Double) => a - b, (id1, id2) => id1 + " - " + id2, x, y)
 
-  final def times(x: Observable[Double], y: Observable[Double]) =
+  final def times(x: Observable[Double], y: Observable[Double]): Observable[Double] =
     lift2((a: Double, b: Double) => a * b, (id1, id2) => id1 + " * " + id2, x, y)
 
   final def negate(x: Observable[Double]): Observable[Double] =
@@ -133,11 +133,26 @@ trait NumericObservables extends Observables {
     Observable("abs(" + x.id + ")", x.process.mapWith((v: Double) => v.abs))
 
   implicit class Ops(val lhs: Observable[Double]) {
-    def +(rhs: Observable[Double]) = plus(lhs, rhs)
-    def -(rhs: Observable[Double]) = minus(lhs, rhs)
-    def *(rhs: Observable[Double]) = times(lhs, rhs)
-    def unary_- = negate(lhs)
+    def +(rhs: Observable[Double]): Observable[Double] = plus(lhs, rhs)
+    def -(rhs: Observable[Double]): Observable[Double] = minus(lhs, rhs)
+    def *(rhs: Observable[Double]): Observable[Double] = times(lhs, rhs)
+    def unary_- : Observable[Double] = negate(lhs)
     def abs: Observable[Double] = NumericObservables.this.abs(lhs)
+
+    // Relational operators
+    def <(rhs: Observable[Double]): Observable[Boolean] =
+      lift2((a: Double, b: Double) => a < b, (id1, id2) => id1 + " < " + id2, lhs, rhs)
+
+    def <=(rhs: Observable[Double]): Observable[Boolean] =
+      lift2((a: Double, b: Double) => a <= b, (id1, id2) => id1 + " <= " + id2, lhs, rhs)
+
+    def ===(rhs: Observable[Double]): Observable[Boolean] = same(lhs, rhs)
+
+    def >=(rhs: Observable[Double]): Observable[Boolean] =
+      lift2((a: Double, b: Double) => a >= b, (id1, id2) => id1 + " >= " + id2, lhs, rhs)
+
+    def >(rhs: Observable[Double]): Observable[Boolean] =
+      lift2((a: Double, b: Double) => a > b, (id1, id2) => id1 + " > " + id2, lhs, rhs)
   }
 
 }
