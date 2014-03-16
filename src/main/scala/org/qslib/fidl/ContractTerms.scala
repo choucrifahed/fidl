@@ -16,7 +16,6 @@
 
 package org.qslib.fidl
 
-
 trait ContractTerms extends Observables {
 
   sealed trait Contract

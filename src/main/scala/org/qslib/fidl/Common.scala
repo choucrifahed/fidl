@@ -16,37 +16,31 @@
 
 package org.qslib.fidl
 
-import org.joda.time.LocalDate
-import org.joda.time.format.DateTimeFormat
 import java.util.Currency
 
 trait Common {
 
   type TimeStep = Int
   type Date = TimeStep
-  // type Date = org.joda.time.LocalDate
   type Currency = java.util.Currency
 
-  type RandomVariable[T] = Seq[T]
-  type ValueProcess[T] = Seq[RandomVariable[T]]
-
-  val today = LocalDate.now
-  val infiniteHorizon = new LocalDate(10000, 1, 1)
-
-  val dateFormatter = DateTimeFormat.forPattern("yyyyMMdd")
-
   // Common currencies
-  val EUR = Currency.getInstance("EUR")
-  val USD = Currency.getInstance("USD")
-  val GBP = Currency.getInstance("GBP")
-  val CHF = Currency.getInstance("CHF")
-  val JPY = Currency.getInstance("JPY")
-  val CAD = Currency.getInstance("CAD")
   val AUD = Currency.getInstance("AUD")
+  val CAD = Currency.getInstance("CAD")
+  val CHF = Currency.getInstance("CHF")
+  val EUR = Currency.getInstance("EUR")
+  val GBP = Currency.getInstance("GBP")
+  val JPY = Currency.getInstance("JPY")
+  val USD = Currency.getInstance("USD")
 
   // FIXME Uncomment when Date switched back to LocalDate
+  //  type Date = org.joda.time.LocalDate
+  //
+  //  val today = LocalDate.now
+  //  val infiniteHorizon = new LocalDate(10000, 1, 1)
+  //
+  //  val dateFormatter = DateTimeFormat.forPattern("yyyyMMdd")
+  //
   //  implicit def stringToDate(string: String): Date =
   //    dateFormatter.parseLocalDate(string)
 }
-
-object Common extends Common
