@@ -32,7 +32,7 @@ trait Models extends ValueProcesses {
     private def rates(rateNow: Double, delta: Double): ValueProcess[Double] = {
 
       def rateSlice(minRate: Double, n: Int): RandomVariable[Double] =
-        (streamFrom(minRate, minRate + (delta * 2)) take n).toList
+        streamFrom(minRate, minRate + (delta * 2)) take n
 
       def makeRateSlices(rateNow: Double, n: Int): ValueProcess[Double] =
         rateSlice(rateNow, n) +: makeRateSlices(rateNow - delta, n + 1)
@@ -56,11 +56,9 @@ trait Models extends ValueProcesses {
       knockOuts.zipWith(values)((knockOut, value) => if (knockOut) 0.0 else value)
 
     override def discount(currency: Currency) = {
-      def prevSlice(slice: RandomVariable[Double]): RandomVariable[Double] = slice match {
-        case Nil => Nil
-        case _ :: Nil => Nil
-        case n1 :: n2 :: _ => ((n1 + n2) / 2.0) +: prevSlice(slice.tail)
-      }
+      def prevSlice(slice: RandomVariable[Double]): RandomVariable[Double] =
+        if (slice.take(2).length < 2) Nil
+        else ((slice(0) + slice(1)) / 2.0) +: prevSlice(slice.tail)
 
       def discCalc(conditions: ValueProcess[Boolean],
                    values: ValueProcess[Double],
@@ -69,7 +67,7 @@ trait Models extends ValueProcesses {
         val (pRv, ps) = (values.head, values.tail)
         val (rateRv, rs) = (rates.head, rates.tail)
 
-        if (bRv.forall(x => x)) List(pRv)
+        if (bRv.forall(x => x)) Seq(pRv)
         else {
           val rest = discCalc(bs, ps, rs)
           val nextSlice = rest.head

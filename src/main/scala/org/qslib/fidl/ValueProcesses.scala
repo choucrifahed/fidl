@@ -18,7 +18,7 @@ package org.qslib.fidl
 
 trait ValueProcesses extends Common {
 
-  type RandomVariable[T] = List[T]
+  type RandomVariable[T] = Seq[T]
   type ValueProcess[T] = Seq[RandomVariable[T]]
 
   /**
@@ -32,9 +32,9 @@ trait ValueProcesses extends Common {
   def streamFrom(start: Double, step: Double): Stream[Double] =
     Stream.cons(start, streamFrom(start + step, step))
 
-  final def constProcess[T](x: T): ValueProcess[T] = Stream.continually(List(x))
+  final def constProcess[T](x: T): ValueProcess[T] = Stream.continually(Seq(x))
 
-  implicit class Ops[T](process: ValueProcess[T]) {
+  implicit class ValueProcessOps[T](process: ValueProcess[T]) {
 
     /**
      * Determines the number of time steps in a value process.
@@ -52,7 +52,7 @@ trait ValueProcesses extends Common {
       }
   }
 
-  implicit class BooleanProcess(process: ValueProcess[Boolean]) {
+  implicit class BooleanValueProcess(process: ValueProcess[Boolean]) {
 
     /**
      * Only terminates for finite value processes.
@@ -61,4 +61,33 @@ trait ValueProcesses extends Common {
     def allTrue: Boolean = process.map(_.forall(x => x)).forall(x => x)
   }
 
+  implicit class DoubleValueProcess(process: ValueProcess[Double]) {
+
+    def expectedValue: Seq[Double] = {
+
+      // Creates a binomial probability lattice
+      val probabilityLattice: ValueProcess[Double] = {
+
+        // Creates an infinite Pascal Triangle
+        val pathCounts: ValueProcess[Int] = Stream.iterate(Seq(1)) {
+          previous =>
+            val lower = previous ++ Seq(0)
+            val upper = Seq(0) ++ previous
+            previous ++ ((lower, upper).zipped map (_ + _))
+        }
+
+        // Calculates probabilities for a slice of the lattice
+        def probabilities(ps: ValueProcess[Int]): ValueProcess[Double] =
+          if (ps.isEmpty) Nil
+          else ps.head.map(n => n.toDouble / ps.head.sum) +: probabilities(ps.tail)
+
+        probabilities(pathCounts)
+      }
+
+      def expectedValueRV(outcomes: RandomVariable[Double], probabilities: RandomVariable[Double]): Double =
+        (outcomes, probabilities).zipped.map(_ * _).sum
+
+      (process, probabilityLattice).zipped map expectedValueRV
+    }
+  }
 }

@@ -38,7 +38,7 @@ trait Observables extends ValueProcesses {
   final def const[T](x: T): Observable[T] = Observable(s"$x", constProcess(x))
 
   /** The value of the observable date at date s is just s. */
-  final def date: Observable[Date] = Observable("date", Stream.from(0).map(d => List(d)))
+  final def date: Observable[Date] = Observable("date", Stream.from(0).map(d => Seq(d)))
 
   /**
    * lift2(o1, o2)(f) is the observable whose value is the result of applying f to the values of the observables
