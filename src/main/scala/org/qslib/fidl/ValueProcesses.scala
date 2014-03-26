@@ -71,9 +71,9 @@ trait ValueProcesses extends Common {
         // Creates an infinite Pascal Triangle
         val pathCounts: ValueProcess[Int] = Stream.iterate(Seq(1)) {
           previous =>
-            val lower = previous ++ Seq(0)
-            val upper = Seq(0) ++ previous
-            previous ++ ((lower, upper).zipped map (_ + _))
+            val lower = previous :+ 0
+            val upper = 0 +: previous
+            (lower, upper).zipped map (_ + _)
         }
 
         // Calculates probabilities for a slice of the lattice
