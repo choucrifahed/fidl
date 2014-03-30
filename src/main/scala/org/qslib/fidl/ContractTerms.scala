@@ -18,7 +18,27 @@ package org.qslib.fidl
 
 trait ContractTerms extends Observables {
 
-  sealed trait Contract
+  sealed trait Contract {
+
+    // Syntactic sugar methods for infix use
+
+    @inline final def unary_- = give(this)
+    @inline final def &&(other: Contract) = and(other)
+    @inline final def ||(other: Contract) = or(other)
+    @inline final def *(observable: Observable[Double]) = scale(observable)
+    @inline final def at(observable: Observable[Boolean]) = when(observable)
+
+    @inline final def and(other: Contract) = ContractTerms.this.and(this, other)
+    @inline final def or(other: Contract) = ContractTerms.this.or(this, other)
+    @inline final def scale(observable: Observable[Double]) = ContractTerms.this.scale(observable, this)
+    @inline final def when(observable: Observable[Boolean]) = ContractTerms.this.when(observable, this)
+    @inline final def anytime(observable: Observable[Boolean]) = ContractTerms.this.anytime(observable, this)
+    @inline final def until(observable: Observable[Boolean]) = ContractTerms.this.until(observable, this)
+
+    @inline final def onlyIf(observable: Observable[Boolean]) = new {
+      def otherwise(other: Contract) = cond(observable, Contract.this, other)
+    }
+  }
 
   /** Zero is a contract that has no rights and no obligations. */
   case object zero extends Contract
@@ -66,26 +86,6 @@ trait ContractTerms extends Observables {
    */
   case class until(observable: Observable[Boolean], contract: Contract) extends Contract
 
-  /** Syntactic sugar */
-  implicit class Ops(val contract: Contract) {
-    def unary_- = give(contract)
-    def &&(other: Contract) = and(other)
-    def ||(other: Contract) = or(other)
-    def *(observable: Observable[Double]) = scale(observable)
-    def at(observable: Observable[Boolean]) = when(observable)
-
-    def and(other: Contract) = ContractTerms.this.and(contract, other)
-    def or(other: Contract) = ContractTerms.this.or(contract, other)
-    def scale(observable: Observable[Double]) = ContractTerms.this.scale(observable, contract)
-    def when(observable: Observable[Boolean]) = ContractTerms.this.when(observable, contract)
-    def anytime(observable: Observable[Boolean]) = ContractTerms.this.anytime(observable, contract)
-    def until(observable: Observable[Boolean]) = ContractTerms.this.until(observable, contract)
-
-    def onlyIf(observable: Observable[Boolean]) = new {
-      def otherwise(other: Contract) = cond(observable, contract, other)
-    }
-  }
-
 }
 
 trait CommonContracts extends ContractTerms with NumericObservables {
@@ -111,7 +111,7 @@ trait CommonContracts extends ContractTerms with NumericObservables {
   final def knockOut(underlying: Contract, start: Date, expiry: Date, barrier: Observable[Boolean]): Contract =
     american(underlying, start, expiry) until barrier
 
-  implicit class DoubleToCash(amount: Double) {
+  implicit final class DoubleToCash(amount: Double) {
     // TODO think of a more elegant syntax, maybe use macros
     def *(currency: Currency) = cash(amount, currency)
   }

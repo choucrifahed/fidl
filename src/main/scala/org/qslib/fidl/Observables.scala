@@ -56,19 +56,15 @@ trait Observables extends ValueProcesses {
 
   final def not(o: Observable[Boolean]): Observable[Boolean] = o.map(b => !b, id => s"not $id")
 
-  final def between(startDate: Date, endDate: Date): Observable[Boolean] =
-    after(startDate) and before(endDate)
+  final def between(startDate: Date, endDate: Date): Observable[Boolean] = after(startDate) and before(endDate)
 
-  final def before(aDate: Date): Observable[Boolean] =
-    date.map(d => d <= aDate, id => s"$id before $aDate")
+  final def before(aDate: Date): Observable[Boolean] = date.map(d => d <= aDate, id => s"$id before $aDate")
 
-  final def after(aDate: Date): Observable[Boolean] =
-    date.map(d => d >= aDate, id => s"$id before $aDate")
+  final def after(aDate: Date): Observable[Boolean] = date.map(d => d >= aDate, id => s"$id before $aDate")
 
-  implicit final def trueAt(atDate: Date): Observable[Boolean] =
-    same(date, const(atDate))
+  implicit final def trueAt(atDate: Date): Observable[Boolean] = same(date, const(atDate))
 
-  implicit class BooleanObservable(observable: Observable[Boolean]) {
+  implicit final class BooleanObservable(observable: Observable[Boolean]) {
     def unary_! = not(observable)
 
     def or(other: Observable[Boolean]): Observable[Boolean] = lift2(observable, other, _ + " or " + _)(_ || _)
@@ -88,12 +84,12 @@ trait NumericObservables extends Observables {
       v => -v
     })
 
-  def abs(x: Observable[Double]): Observable[Double] =
+  final def abs(x: Observable[Double]): Observable[Double] =
     Observable("abs(" + x.id + ")", x.process mapWith {
       v => v.abs
     })
 
-  implicit class Ops(val lhs: Observable[Double]) {
+  implicit final class Ops(val lhs: Observable[Double]) {
     def +(rhs: Observable[Double]): Observable[Double] = plus(lhs, rhs)
     def -(rhs: Observable[Double]): Observable[Double] = minus(lhs, rhs)
     def *(rhs: Observable[Double]): Observable[Double] = times(lhs, rhs)

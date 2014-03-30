@@ -29,12 +29,12 @@ trait ValueProcesses extends Common {
    * @param step the increment value of the stream
    * @return the stream starting at value `start`.
    */
-  def streamFrom(start: Double, step: Double): Stream[Double] =
+  final def streamFrom(start: Double, step: Double): Stream[Double] =
     Stream.cons(start, streamFrom(start + step, step))
 
   final def constProcess[T](x: T): ValueProcess[T] = Stream.continually(Seq(x))
 
-  implicit class ValueProcessOps[T](process: ValueProcess[T]) {
+  implicit final class ValueProcessOps[T](process: ValueProcess[T]) {
 
     /**
      * Determines the number of time steps in a value process.
@@ -52,7 +52,7 @@ trait ValueProcesses extends Common {
       }
   }
 
-  implicit class BooleanValueProcess(process: ValueProcess[Boolean]) {
+  implicit final class BooleanValueProcess(process: ValueProcess[Boolean]) {
 
     /**
      * Only terminates for finite value processes.
@@ -61,7 +61,7 @@ trait ValueProcesses extends Common {
     def allTrue: Boolean = process.map(_.forall(x => x)).forall(x => x)
   }
 
-  implicit class DoubleValueProcess(process: ValueProcess[Double]) {
+  implicit final class DoubleValueProcess(process: ValueProcess[Double]) {
 
     def expectedValue: Seq[Double] = {
 
