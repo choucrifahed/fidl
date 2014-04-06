@@ -34,20 +34,34 @@ trait ValueProcesses extends Common {
 
   final def constProcess[T](x: T): ValueProcess[T] = Stream.continually(Seq(x))
 
-  implicit final class ValueProcessOps[T](process: ValueProcess[T]) {
+  val dateProcess: ValueProcess[Date] = Stream.from(0).map(d => Seq(d))
+
+  implicit final class ValueProcessOps[A](processA: ValueProcess[A]) {
 
     /**
      * Determines the number of time steps in a value process.
      * Only terminates for finite value processes.
      */
-    def horizon = process.length
+    def horizon = processA.length
 
-    def mapWith[U](f: T => U): ValueProcess[U] = process.map(_ map f)
+    def mapWith[B](f: A => B): ValueProcess[B] = processA.map(_ map f)
 
-    def zipWith[U, V](otherProcess: ValueProcess[U])(f: (T, U) => V): ValueProcess[V] =
-      process zip otherProcess map {
-        case (rv1, rv2) => rv1 zip rv2 map {
-          case (a, b) => f(a, b)
+    def zipWith[B, C](processB: ValueProcess[B])(f: (A, B) => C): ValueProcess[C] =
+      processA zip processB map {
+        case (rvA, rvB) => (rvA, rvB).zipped map f
+      }
+
+    def zipWithAll[B, C](processB: ValueProcess[B])(f: (A, B) => C): ValueProcess[C] =
+      processA.zipAll(processB, Seq(), Seq()) map {
+        case (rvA, rvB) => (rvA, rvB).zipped map f
+      }
+
+    def zipWith[B, C, D](processB: ValueProcess[B],
+                         processC: ValueProcess[C])
+                        (f: (A, B, C) => D): ValueProcess[D] =
+      processA zip processB zip processC map {
+        case ((rvA, rvB), rvC) => rvA zip rvB zip rvC map {
+          case ((a, b), c) => f(a, b, c)
         }
       }
   }
@@ -59,6 +73,11 @@ trait ValueProcesses extends Common {
      * @return True if every value in a value process is true, false otherwise.
      */
     def allTrue: Boolean = process.map(_.forall(x => x)).forall(x => x)
+
+    def condProcess[A](truePr: ValueProcess[A], falsePr: ValueProcess[A]): ValueProcess[A] =
+      process.zipWith(truePr, falsePr) {
+        (cond, first, second) => if (cond) first else second
+      }
   }
 
   implicit final class DoubleValueProcess(process: ValueProcess[Double]) {
@@ -89,5 +108,25 @@ trait ValueProcesses extends Common {
 
       (process, probabilityLattice).zipped map expectedValueRV
     }
+
+    def unary_- : ValueProcess[Double] = process.mapWith(-_)
+
+    def +(otherProcess: ValueProcess[Double]): ValueProcess[Double] =
+      process.zipWith(otherProcess)(_ + _)
+
+    def -(otherProcess: ValueProcess[Double]): ValueProcess[Double] =
+      process.zipWith(otherProcess)(_ - _)
+
+    def *(otherProcess: ValueProcess[Double]): ValueProcess[Double] =
+      process.zipWith(otherProcess)(_ * _)
+
+    // Some mysterious compiler issue forbids calling this method 'min'
+    def minimum(otherProcess: ValueProcess[Double]): ValueProcess[Double] =
+      process.zipWith(otherProcess)(_ min _)
+
+    // Some mysterious compiler issue forbids calling this method 'max'
+    def maximum(otherProcess: ValueProcess[Double]): ValueProcess[Double] =
+      process.zipWith(otherProcess)(_ max _)
   }
+
 }

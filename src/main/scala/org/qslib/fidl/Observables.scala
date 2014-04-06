@@ -19,7 +19,8 @@ package org.qslib.fidl
 trait Observables extends ValueProcesses {
 
   case class Observable[T](id: String, process: ValueProcess[T]) {
-    def apply(date: Date): RandomVariable[T] = process(date)
+    // FIXME when real dates are used
+    def apply(date: Date): ValueProcess[T] = process
 
     def map[U](f: T => U, gId: String => String = s => s"g($s)"): Observable[U] =
       Observable[U](gId(id), process mapWith f)
@@ -38,7 +39,7 @@ trait Observables extends ValueProcesses {
   final def const[T](x: T): Observable[T] = Observable(s"$x", constProcess(x))
 
   /** The value of the observable date at date s is just s. */
-  final def date: Observable[Date] = Observable("date", Stream.from(0).map(d => Seq(d)))
+  val date: Observable[Date] = Observable("date", dateProcess)
 
   /**
    * lift2(o1, o2)(f) is the observable whose value is the result of applying f to the values of the observables
